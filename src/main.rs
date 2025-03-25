@@ -224,6 +224,23 @@ impl App {
     //    self.move_cursor_right();
     //}
 
+    fn clamp_cursor(&self, new_cursor_pos: usize) -> usize {
+        new_cursor_pos.clamp(0, self.input.chars().count())
+    }
+    fn move_cursor_left(&mut self) {
+        let cursor_moved_left = self.cur_char_index.saturating_sub(1);
+        self.cur_char_index = self.clamp_cursor(cursor_moved_left);
+    }
+
+    fn move_cursor_right(&mut self) {
+        let cursor_moved_right = self.cur_char_index.saturating_add(1);
+        self.cur_char_index = self.clamp_cursor(cursor_moved_right);
+    }
+
+    fn reset_cursor(&mut self) {
+        self.cur_char_index = 0;
+    }
+
     fn draw(&self, frame: &mut Frame) {
         let size = frame.area();
 
