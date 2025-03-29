@@ -8,7 +8,7 @@ use ratatui::{
     prelude::*,
     restore,
     style::{self, palette::material::*, Color, Style, Stylize},
-    symbols::border,
+    symbols::{border, half_block},
     text::{self, Line, Text},
     widgets::{Block, Borders, Paragraph, Widget},
     DefaultTerminal, Frame,
@@ -23,6 +23,7 @@ use std::{collections::HashMap, default};
 #[derive(Debug, Default)]
 pub struct App {
     input: String,
+    hl_block: Rect,
     input_mode: InputMode,
     cur_char_index: usize,
     exit: bool,
@@ -201,6 +202,12 @@ impl App {
             input_mode: InputMode::Normal,
             exit: false,
             cur_char_index: 0,
+            hl_block: Rect {
+                x: 0,
+                y: 1, // Adjust based on your paragraph's layout
+                width: 0,
+                height: 1, // Adjust based on your line height
+            },
         }
     }
 
@@ -216,13 +223,13 @@ impl App {
     }
 
     //NOTE: in progress:
-    //
-    //fn enter_char(&mut self, new_char: char) {
-    //    let index = self.cur_char_index.byte;
-    //    //let index =
-    //    self.input.insert(index, new_char);
-    //    self.move_cursor_right();
-    //}
+
+    fn enter_char(&mut self, new_char: char) {
+        let index = self.cur_char_index;
+        //let index =
+        self.input.insert(index, new_char);
+        self.move_cursor_right();
+    }
 
     fn clamp_cursor(&self, new_cursor_pos: usize) -> usize {
         new_cursor_pos.clamp(0, self.input.chars().count())
@@ -240,26 +247,37 @@ impl App {
     fn reset_cursor(&mut self) {
         self.cur_char_index = 0;
     }
+    fn move_highlight_up(&mut self) {
+        if self.hl_block.y > 0 {
+            self.hl_block.y -= 1;
+        }
+    }
 
-    fn draw(&self, frame: &mut Frame) {
+    fn move_highlight_down(&mut self) {
+        self.hl_block.y += 1;
+    }
+
+    fn draw(&mut self, frame: &mut Frame) {
         let size = frame.area();
 
         let paths = self.current_path();
         let pwd = env::current_dir().unwrap();
         let tittle = pwd.display().to_string();
-        let input_bar = Paragraph::new("").block(
+        let input_bar = Paragraph::new(">input text here").block(
             Block::default()
                 .borders(Borders::ALL)
-                .style(Style::default().fg(Color::Red)),
+                .fg(Color::Rgb(25, 25, 25))
+                .style(Style::default().fg(Color::Magenta))
+                .bg(Color::Rgb(85, 55, 55)),
         );
 
         let input_area = Rect {
-            x: 0,
+            x: 2,
             y: size.height.saturating_sub(3),
-            width: size.width,
-            height: 2,
+            width: size.width / 2,
+            height: 3,
         };
-        let paragraph = Paragraph::new(paths)
+        let paragraph = Paragraph::new(paths.clone())
             .style(Style::default().fg(Color::Rgb(165, 180, 201)))
             .block(
                 Block::default()
@@ -277,6 +295,12 @@ impl App {
         frame.render_widget(paragraph, size);
         frame.render_widget(block, size);
         frame.render_widget(input_bar, input_area);
+        //
+        if !paths.is_empty() {
+            self.hl_block.width = frame.area().width;
+            let highlight_block = Block::default().style(Style::default().bg(Color::White));
+            frame.render_widget(highlight_block, self.hl_block);
+        }
     }
 
     fn handle_events(&mut self) -> io::Result<()> {
@@ -286,6 +310,8 @@ impl App {
                 KeyCode::Char('q') => {
                     self.exit = true;
                 }
+                KeyCode::Up => self.move_highlight_up(),
+                KeyCode::Down => self.move_highlight_down(),
                 _ => {}
             }
         }
