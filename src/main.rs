@@ -1,5 +1,5 @@
 use crossterm::{
-    event::{self, Event, KeyCode},
+    event::{self, Event, KeyCode, KeyEventKind},
     terminal,
 };
 use ratatui::{
@@ -25,7 +25,8 @@ pub struct App {
     input: String,
     hl_block: Rect,
     input_mode: InputMode,
-    cur_char_index: usize,
+    char_index: usize,
+    path_string: Vec<String>,
     exit: bool,
 }
 #[derive(Debug, Default)]
@@ -201,7 +202,8 @@ impl App {
             input: String::new(),
             input_mode: InputMode::Normal,
             exit: false,
-            cur_char_index: 0,
+            path_string: Vec::new(),
+            char_index: 0,
             hl_block: Rect {
                 x: 0,
                 y: 1, // Adjust based on your paragraph's layout
@@ -225,27 +227,33 @@ impl App {
     //NOTE: in progress:
 
     fn enter_char(&mut self, new_char: char) {
-        let index = self.cur_char_index;
+        let index = self.char_index;
         //let index =
         self.input.insert(index, new_char);
         self.move_cursor_right();
+    }
+
+    fn delete_char(&mut self) {
+        let cursor_delete_char = self.char_index.saturating_sub(1);
+        //self.char_index = self.clamp_cursor(cursor_delete_char);
+        self.input = '\0'.to_string();
     }
 
     fn clamp_cursor(&self, new_cursor_pos: usize) -> usize {
         new_cursor_pos.clamp(0, self.input.chars().count())
     }
     fn move_cursor_left(&mut self) {
-        let cursor_moved_left = self.cur_char_index.saturating_sub(1);
-        self.cur_char_index = self.clamp_cursor(cursor_moved_left);
+        let cursor_moved_left = self.char_index.saturating_sub(1);
+        self.char_index = self.clamp_cursor(cursor_moved_left);
     }
 
     fn move_cursor_right(&mut self) {
-        let cursor_moved_right = self.cur_char_index.saturating_add(1);
-        self.cur_char_index = self.clamp_cursor(cursor_moved_right);
+        let cursor_moved_right = self.char_index.saturating_add(1);
+        self.char_index = self.clamp_cursor(cursor_moved_right);
     }
 
     fn reset_cursor(&mut self) {
-        self.cur_char_index = 0;
+        self.char_index = 0;
     }
     fn move_highlight_up(&mut self) {
         if self.hl_block.y > 0 {
@@ -260,16 +268,48 @@ impl App {
     fn draw(&mut self, frame: &mut Frame) {
         let size = frame.area();
 
+        let vertical = Layout::vertical([
+            Constraint::Length(1),
+            Constraint::Length(3),
+            Constraint::Min(1),
+        ]);
         let paths = self.current_path();
         let pwd = env::current_dir().unwrap();
         let tittle = pwd.display().to_string();
-        let input_bar = Paragraph::new(">input text here").block(
+        let input_bar = Paragraph::new(">").block(
             Block::default()
                 .borders(Borders::ALL)
                 .fg(Color::Rgb(25, 25, 25))
                 .style(Style::default().fg(Color::Magenta))
                 .bg(Color::Rgb(85, 55, 55)),
         );
+
+        let [help_area, input_area, messages_area] = vertical.areas(frame.area());
+        let (msg, style) = match self.input_mode {
+            InputMode::Normal => (
+                vec![
+                    "Press ".into(),
+                    "q".bold(),
+                    " to exit, ".into(),
+                    "e".bold(),
+                    " to start editing.".bold(),
+                ],
+                Style::default().add_modifier(Modifier::RAPID_BLINK),
+            ),
+            InputMode::Editing => (
+                vec![
+                    "Press ".into(),
+                    "Esc".bold(),
+                    " to stop editing, ".into(),
+                    "Enter".bold(),
+                    " to record the message".into(),
+                ],
+                Style::default(),
+            ),
+        };
+
+        let text = Text::from(Line::from(msg)).patch_style(style);
+        let help_message = Paragraph::new(text);
 
         let input_area = Rect {
             x: 2,
@@ -290,9 +330,17 @@ impl App {
                         bottom: 0,
                     }),
             );
+        let input = Paragraph::new(self.input.as_str())
+            .style(match self.input_mode {
+                InputMode::Normal => Style::default(),
+                InputMode::Editing => Style::default().fg(Color::Yellow),
+            })
+            .block(Block::bordered().title("Input"));
+        frame.render_widget(input, input_area);
 
         let block = Block::new().style(Style::default().bg(Color::Rgb(30, 25, 89)));
         frame.render_widget(paragraph, size);
+        frame.render_widget(help_message, help_area);
         frame.render_widget(block, size);
         frame.render_widget(input_bar, input_area);
         //
@@ -305,14 +353,43 @@ impl App {
 
     fn handle_events(&mut self) -> io::Result<()> {
         // Handle user input (e.g., quitting)
+
         if let Event::Key(key) = event::read()? {
-            match key.code {
-                KeyCode::Char('q') => {
-                    self.exit = true;
-                }
-                KeyCode::Up => self.move_highlight_up(),
-                KeyCode::Down => self.move_highlight_down(),
-                _ => {}
+            match self.input_mode {
+                InputMode::Normal => match key.code {
+                    KeyCode::Char('i') => {
+                        self.input_mode = InputMode::Editing;
+                    }
+                    KeyCode::Char('q') => {
+                        self.exit = true;
+                    }
+                    KeyCode::Up | KeyCode::Char('k') => self.move_highlight_up(),
+                    KeyCode::Down | KeyCode::Char('j') => self.move_highlight_down(),
+
+                    _ => {}
+                },
+                InputMode::Editing if key.kind == KeyEventKind::Press => match key.code {
+                    //KeyCode::Enter => self.submit_message(),
+                    KeyCode::Char(to_insert) => self.enter_char(to_insert),
+                    //KeyCode::Backspace => self.delete_char(),
+                    KeyCode::Up => self.move_highlight_up(),
+                    KeyCode::Modifier(event::ModifierKeyCode::LeftControl)
+                        if key.code == KeyCode::Char('k') =>
+                    {
+                        self.move_highlight_up()
+                    }
+                    //KeyCode::Modifier(event::ModifierKeyCode::LeftControl) => {
+                    //     KeyCode::Char('k') => self.move_highlight_up();
+                    //     KeyCode::Char('j') => self.move_highlight_down();
+                    //},
+                    KeyCode::Down => self.move_highlight_down(),
+                    KeyCode::Backspace => self.delete_char(),
+                    KeyCode::Left => self.move_cursor_left(),
+                    KeyCode::Right => self.move_cursor_right(),
+                    KeyCode::Esc => self.input_mode = InputMode::Normal,
+                    _ => {}
+                },
+                InputMode::Editing => {}
             }
         }
         Ok(())
