@@ -227,16 +227,26 @@ impl App {
     //NOTE: in progress:
 
     fn enter_char(&mut self, new_char: char) {
-        let index = self.char_index;
+        let index = self.char_index + 1;
         //let index =
         self.input.insert(index, new_char);
         self.move_cursor_right();
     }
 
     fn delete_char(&mut self) {
+        if self.char_index == 0 {
+            return;
+        }
         let cursor_delete_char = self.char_index.saturating_sub(1);
+
         //self.char_index = self.clamp_cursor(cursor_delete_char);
-        self.input = '\0'.to_string();
+        // self.input = self.input.remove(cursor_delete_char);
+        if let Some((byte_index, _)) = self.input.char_indices().nth(cursor_delete_char) {
+            self.input.remove(byte_index);
+            self.char_index -= 1;
+        }
+
+        // self.move_cursor_left();
     }
 
     fn clamp_cursor(&self, new_cursor_pos: usize) -> usize {
@@ -261,6 +271,15 @@ impl App {
         }
     }
 
+    fn submit_message(&mut self) {
+        // if !self.hl_block.is_empty() {
+        //     return;
+        // } else {
+        //     // return self.hl_block.positions();
+        //     self.current_path();
+        // }
+        self.exit = true;
+    }
     fn move_highlight_down(&mut self) {
         self.hl_block.y += 1;
     }
@@ -357,6 +376,7 @@ impl App {
         if let Event::Key(key) = event::read()? {
             match self.input_mode {
                 InputMode::Normal => match key.code {
+                    KeyCode::Enter => self.submit_message(),
                     KeyCode::Char('i') => {
                         self.input_mode = InputMode::Editing;
                     }
@@ -369,7 +389,7 @@ impl App {
                     _ => {}
                 },
                 InputMode::Editing if key.kind == KeyEventKind::Press => match key.code {
-                    //KeyCode::Enter => self.submit_message(),
+                    KeyCode::Enter => self.submit_message(),
                     KeyCode::Char(to_insert) => self.enter_char(to_insert),
                     //KeyCode::Backspace => self.delete_char(),
                     KeyCode::Up => self.move_highlight_up(),
