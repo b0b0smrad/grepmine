@@ -278,7 +278,7 @@ impl App {
         //     // return self.hl_block.positions();
         //     self.current_path();
         // }
-        self.exit = true;
+        // self.exit = true;
     }
     fn move_highlight_down(&mut self) {
         self.hl_block.y += 1;
@@ -376,7 +376,7 @@ impl App {
         if let Event::Key(key) = event::read()? {
             match self.input_mode {
                 InputMode::Normal => match key.code {
-                    KeyCode::Enter => self.submit_message(),
+                    // KeyCode::Enter => self.submit_message(),
                     KeyCode::Char('i') => {
                         self.input_mode = InputMode::Editing;
                     }
@@ -389,7 +389,7 @@ impl App {
                     _ => {}
                 },
                 InputMode::Editing if key.kind == KeyEventKind::Press => match key.code {
-                    KeyCode::Enter => self.submit_message(),
+                    // KeyCode::Enter => self.submit_message(),
                     KeyCode::Char(to_insert) => self.enter_char(to_insert),
                     //KeyCode::Backspace => self.delete_char(),
                     KeyCode::Up => self.move_highlight_up(),
