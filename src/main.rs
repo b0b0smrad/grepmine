@@ -23,10 +23,11 @@ use std::{collections::HashMap, default};
 #[derive(Debug, Default)]
 pub struct App {
     input: String,
+    path_index: usize,
     hl_block: Rect,
     input_mode: InputMode,
     char_index: usize,
-    path_string: Vec<String>,
+    dir_paths: Vec<String>,
     exit: bool,
 }
 #[derive(Debug, Default)]
@@ -52,16 +53,27 @@ fn run(mut terminal: DefaultTerminal) -> io::Result<()> {
     }
 }
 fn main() -> io::Result<()> {
-    let args: Vec<String> = env::args().collect();
+    // let args: Vec<String> = env::args().collect();
     //if args.len() < 2 {
     //    println!("Usage: <command> <arguments>");
     //    return Ok(());
     //}
 
+    // println!("before the terminal");
     let mut terminal = ratatui::init();
-    //let mut app = App; //let result = run(terminal);
-    let app_result = App::new().run(&mut terminal);
+    let mut app = App::new(); //let result = run(terminal);
+    let app_result = app.run(&mut terminal);
     restore();
+
+    let selected_path = app.print_output();
+    if app.exit == true {
+        println!("{}", selected_path);
+    }
+    // if selected_path.is_some() {
+    // } else {
+    //     println!("directory or file doesn't exists");
+    // }
+
     app_result
 
     //let mut entries = fs::read_dir("..")?
@@ -124,63 +136,6 @@ fn main() -> io::Result<()> {
     //Ok(())
 }
 
-impl Table {
-    fn new() -> Table {
-        Table {
-            data: HashMap::new(),
-        }
-    }
-
-    fn load(filename: &str) -> Table {
-        let content = fs::read_to_string(filename);
-        match content {
-            Ok(data) => serde_json::from_str(&data).unwrap_or_else(|_| Table::new()),
-            Err(_) => Table::new(),
-        }
-    }
-
-    fn save(&self, filename: &str) {
-        let json = serde_json::to_string(&self).expect("Failed to serialize table");
-        let mut file = OpenOptions::new()
-            .write(true)
-            .create(true)
-            .truncate(true)
-            .open(filename)
-            .expect("Failed to open file");
-        file.write_all(json.as_bytes())
-            .expect("Failed to write to file");
-    }
-
-    fn append(&mut self, team: String, score: i32) {
-        self.data.insert(team, score);
-    }
-
-    fn update(&mut self, team: String, score: i32) {
-        if let Some(entry) = self.data.get_mut(&team) {
-            *entry = score;
-        } else {
-            println!("Team not found.");
-        }
-    }
-
-    fn delete(&mut self, team: String) {
-        if self.data.remove(&team).is_none() {
-            println!("Team not found.");
-        }
-    }
-    fn delete_all(&mut self) {
-        self.data.clear();
-    }
-
-    fn print(&self) {
-        println!("________________________________________");
-        println!("{:<20} {:<10} {:<20}", "| Team", "| |", "Score |");
-        println!("---------------------------------------");
-        for (team, score) in &self.data {
-            println!("{:<20}{:<10}  {:<10}", team, "|", score);
-        }
-    }
-}
 fn print_dirs(dir: &Path, cb: &dyn Fn(&DirEntry)) -> io::Result<()> {
     if dir.is_dir() {
         for entry in fs::read_dir(dir)? {
@@ -202,8 +157,9 @@ impl App {
         Self {
             input: preset.to_string(),
             input_mode: InputMode::Normal,
+            path_index: 1,
             exit: false,
-            path_string: Vec::new(),
+            dir_paths: Vec::new(),
             char_index: preset.chars().count(),
             hl_block: Rect {
                 x: 0,
@@ -266,19 +222,38 @@ impl App {
         self.char_index = 0;
     }
     fn move_highlight_up(&mut self) {
-        if self.hl_block.y > 0 {
-            self.hl_block.y -= 1;
+        if self.path_index > 0 {
+            self.path_index -= 1;
         }
     }
 
     fn move_highlight_down(&mut self) {
-        self.hl_block.y += 1;
+        // self.hl_block.y = self.path_index as u16;
+        // if self.path_index > self.dir_paths.len() {
+        //     self.path_index = self.dir_paths.len();
+        // }
+        if self.path_index < self.dir_paths.len() - 1 {
+            self.path_index += 1;
+        }
     }
     fn submit(&mut self) {
-        let print_to_std = println!("{}", self.path_string[1]);
-        // return self.path_string[1];
         self.exit = true;
-        return print_to_std;
+    }
+
+    fn print_output(&mut self) -> String {
+        // let export_path = self.dir_paths.get(self.path_index);
+        self.dir_paths = self.current_path();
+        let export_path = self.dir_paths[self.path_index].clone();
+
+        // let print: bool = self.exit;
+        // let export_path = self.dir_paths;
+        // if print == true {
+        //     if export_path.is_some() {
+        //     } else {
+        //         panic!("no valid directory at the index {}", self.path_index);
+        //     }
+        // }
+        export_path
     }
 
     fn draw(&mut self, frame: &mut Frame) {
@@ -291,7 +266,7 @@ impl App {
         ]);
         let paths = self.current_path();
         let pwd = env::current_dir().unwrap();
-        self.path_string = vec![pwd.display().to_string()];
+        self.dir_paths = vec![pwd.display().to_string()];
         let tittle = pwd.display().to_string();
         let input_bar = Paragraph::new(">").block(
             Block::default()
@@ -334,7 +309,9 @@ impl App {
             width: size.width / 2,
             height: 3,
         };
-        let paragraph = Paragraph::new(paths.clone())
+
+        let i = 0;
+        let paragraph = Paragraph::new(format!("{}", paths.join("\n")))
             .style(Style::default().fg(Color::Rgb(165, 180, 201)))
             .block(
                 Block::default()
@@ -371,6 +348,9 @@ impl App {
     fn handle_events(&mut self) -> io::Result<()> {
         // Handle user input (e.g., quitting)
 
+        // if self.exit == true {
+        //     self.print_output();
+        // }
         if let Event::Key(key) = event::read()? {
             match self.input_mode {
                 InputMode::Normal => match key.code {
@@ -408,16 +388,19 @@ impl App {
                 },
                 InputMode::Editing => {}
             }
+            self.hl_block.y = self.path_index as u16;
         }
         Ok(())
     }
 
-    fn current_path(&self) -> String {
-        let mut paths = String::new();
+    fn current_path(&self) -> Vec<String> {
+        // let mut paths: Vec<str> = Vec::new();
+        let mut paths: Vec<String> = Vec::new();
         if let Ok(entries) = fs::read_dir("./") {
             for entry in entries.flatten() {
                 if let Some(name) = entry.path().file_name() {
-                    paths.push_str(&format!("{}\n", name.to_string_lossy()));
+                    // paths.push_str(&format!("{}\n", name.to_string_lossy()));
+                    paths.push(name.to_string_lossy().to_string());
                 }
             }
         }
