@@ -62,6 +62,7 @@ fn main() -> io::Result<()> {
     // println!("before the terminal");
     let mut terminal = ratatui::init();
     let mut app = App::new(); //let result = run(terminal);
+                              // app.dir_paths = app.current_path();
     let app_result = app.run(&mut terminal);
     restore();
 
@@ -222,19 +223,40 @@ impl App {
         self.char_index = 0;
     }
     fn move_highlight_up(&mut self) {
+        // println!(
+        //     "path_index: {}, dir_paths.len(): {}",
+        //     self.path_index,
+        //     self.dir_paths.len()
+        // );
+        if self.hl_block.y > 0 {
+            self.hl_block.y -= 1;
+        }
         if self.path_index > 0 {
             self.path_index -= 1;
         }
     }
 
     fn move_highlight_down(&mut self) {
-        // self.hl_block.y = self.path_index as u16;
-        // if self.path_index > self.dir_paths.len() {
-        //     self.path_index = self.dir_paths.len();
-        // }
-        if self.path_index < self.dir_paths.len() - 1 {
+        // println!(
+        //     "path_index: {}, dir_paths.len(): {}",
+        //     self.path_index,
+        //     self.dir_paths.len()
+        // );
+        if self.path_index < self.dir_paths.len() {
             self.path_index += 1;
         }
+        let temp = self.path_index as u16;
+        self.hl_block.y = temp - 1;
+        self.path_index += 1;
+
+        //
+        // let max = self.dir_paths.len();
+        // if self.hl_block.y < max as u16 {
+        //     self.hl_block.y += 1;
+        // }
+        // if self.path_index < max {
+        //     self.path_index += 1;
+        // }
     }
     fn submit(&mut self) {
         self.exit = true;
@@ -266,7 +288,8 @@ impl App {
         ]);
         let paths = self.current_path();
         let pwd = env::current_dir().unwrap();
-        self.dir_paths = vec![pwd.display().to_string()];
+        // self.dir_paths = vec![pwd.display().to_string()];
+        self.dir_paths = self.current_path();
         let tittle = pwd.display().to_string();
         let input_bar = Paragraph::new(">").block(
             Block::default()
@@ -388,7 +411,7 @@ impl App {
                 },
                 InputMode::Editing => {}
             }
-            self.hl_block.y = self.path_index as u16;
+            // self.hl_block.y = self.path_index as u16;
         }
         Ok(())
     }
@@ -404,6 +427,7 @@ impl App {
                 }
             }
         }
+        // println!("Total entries found: {}", paths.len()); // Add this line
         paths
     }
 }
