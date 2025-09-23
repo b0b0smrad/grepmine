@@ -302,10 +302,9 @@ impl App {
         let tittle = pwd.display().to_string();
         let input_bar = Paragraph::new(">").block(
             Block::default()
-                .borders(Borders::ALL)
-                .fg(Color::Rgb(25, 25, 25))
-                .style(Style::default().fg(Color::Magenta))
-                .bg(Color::Rgb(85, 55, 55)),
+                .borders(Borders::BOTTOM)
+                .fg(Color::Rgb(255, 172, 172))
+                .style(Style::default().fg(Color::Magenta)), // .bg(Color::Rgb(62, 30, 104)),
         );
 
         let [help_area, input_area, messages_area] = vertical.areas(frame.area());
@@ -344,14 +343,20 @@ impl App {
 
         let i = 0;
         let paragraph = Paragraph::new(format!("{}", paths.join("\n")))
-            .style(Style::default().fg(Color::Rgb(165, 180, 201)))
+            .style(
+                Style::default()
+                    .fg(Color::Rgb(255, 172, 172))
+                    .bg(Color::Rgb(62, 30, 104)),
+            )
             .block(
                 Block::default()
                     .title(tittle)
+                    .style(Style::default().fg(Color::Rgb(255, 172, 172)))
+                    .bg(Color::Rgb(62, 30, 104))
                     .borders(Borders::ALL)
                     .padding(ratatui::widgets::Padding {
-                        left: 2,
-                        right: 5,
+                        left: 3,
+                        right: 2,
                         top: 1,
                         bottom: 0,
                     }),
@@ -364,7 +369,9 @@ impl App {
             .block(Block::bordered().title("Input"));
         frame.render_widget(input, input_area);
 
-        let block = Block::new().style(Style::default().bg(Color::Rgb(30, 25, 89)));
+        let block = Block::new().style(Style::default().bg(Color::Rgb(62, 30, 104)));
+        // .borders(Borders::ALL);
+        // .border_style(Style::on_light_red());
         let debug_p = self.debug_path();
         let size_debug = Rect {
             x: (32),
@@ -380,7 +387,8 @@ impl App {
         //
         if !paths.is_empty() {
             self.hl_block.width = frame.area().width;
-            let highlight_block = Block::default().style(Style::default().bg(Color::White));
+            let highlight_block =
+                Block::default().style(Style::default().bg(Color::Rgb(228, 90, 147)));
             frame.render_widget(highlight_block, self.hl_block);
         }
     }
