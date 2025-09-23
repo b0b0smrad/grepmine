@@ -62,7 +62,11 @@ fn main() -> io::Result<()> {
     // println!("before the terminal");
     let mut terminal = ratatui::init();
     let mut app = App::new(); //let result = run(terminal);
-                              // app.dir_paths = app.current_path();
+                              // app.path_index = app.dir_paths.len() as usize;
+                              // app.hl_block.y += app.path_index as u16;
+                              // app.hl_block.y += 3;
+
+    // app.dir_paths = app.current_path();
     let app_result = app.run(&mut terminal);
     restore();
 
@@ -158,13 +162,13 @@ impl App {
         Self {
             input: preset.to_string(),
             input_mode: InputMode::Normal,
-            path_index: 1,
+            path_index: 0,
             exit: false,
             dir_paths: Vec::new(),
             char_index: preset.chars().count(),
             hl_block: Rect {
                 x: 0,
-                y: 1, // Adjust based on your paragraph's layout
+                y: 0, // Adjust based on your paragraph's layout
                 width: 0,
                 height: 1, // Adjust based on your line height
             },
@@ -228,35 +232,19 @@ impl App {
         //     self.path_index,
         //     self.dir_paths.len()
         // );
-        if self.hl_block.y > 0 {
-            self.hl_block.y -= 1;
-        }
+        // if self.hl_block.y > 0 {
+        //     self.hl_block.y -= 1;
+        // }
         if self.path_index > 0 {
             self.path_index -= 1;
         }
     }
 
     fn move_highlight_down(&mut self) {
-        // println!(
-        //     "path_index: {}, dir_paths.len(): {}",
-        //     self.path_index,
-        //     self.dir_paths.len()
-        // );
-        if self.path_index < self.dir_paths.len() {
+        // self.hl_block.y = self.path_index.clone() as u16;
+        if self.path_index < self.dir_paths.len() - 1 {
             self.path_index += 1;
         }
-        let temp = self.path_index as u16;
-        self.hl_block.y = temp - 1;
-        self.path_index += 1;
-
-        //
-        // let max = self.dir_paths.len();
-        // if self.hl_block.y < max as u16 {
-        //     self.hl_block.y += 1;
-        // }
-        // if self.path_index < max {
-        //     self.path_index += 1;
-        // }
     }
     fn submit(&mut self) {
         self.exit = true;
@@ -278,18 +266,39 @@ impl App {
         export_path
     }
 
+    fn debug_path(&mut self) -> Paragraph {
+        let paragraph = Paragraph::new(format!("P:{} hl|y: {}", self.path_index, self.hl_block.y))
+            .style(Style::default().fg(Color::Rgb(165, 180, 201)))
+            .block(
+                Block::default()
+                    .title("Debug")
+                    .borders(Borders::ALL)
+                    .padding(ratatui::widgets::Padding {
+                        left: 1,
+                        right: 1,
+                        top: 1,
+                        bottom: 1,
+                    }),
+            );
+        paragraph
+    }
     fn draw(&mut self, frame: &mut Frame) {
+        let paths = self.current_path();
+        self.dir_paths = self.current_path();
         let size = frame.area();
 
         let vertical = Layout::vertical([
-            Constraint::Length(1),
+            Constraint::Length(8),
             Constraint::Length(3),
             Constraint::Min(1),
         ]);
-        let paths = self.current_path();
+        // self.path_index += 1;
+        // let lm = self.dir_paths[1].len() as u16;
+        self.hl_block.y = frame.area().y + 2 + self.path_index as u16;
+        // self.hl_block.y = lm;
+
         let pwd = env::current_dir().unwrap();
         // self.dir_paths = vec![pwd.display().to_string()];
-        self.dir_paths = self.current_path();
         let tittle = pwd.display().to_string();
         let input_bar = Paragraph::new(">").block(
             Block::default()
@@ -356,6 +365,14 @@ impl App {
         frame.render_widget(input, input_area);
 
         let block = Block::new().style(Style::default().bg(Color::Rgb(30, 25, 89)));
+        let debug_p = self.debug_path();
+        let size_debug = Rect {
+            x: (32),
+            y: (18),
+            width: (40),
+            height: (10),
+        };
+        frame.render_widget(debug_p, size_debug);
         frame.render_widget(paragraph, size);
         frame.render_widget(help_message, help_area);
         frame.render_widget(block, size);
