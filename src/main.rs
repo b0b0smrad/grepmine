@@ -53,92 +53,48 @@ fn run(mut terminal: DefaultTerminal) -> io::Result<()> {
     }
 }
 fn main() -> io::Result<()> {
-    // let args: Vec<String> = env::args().collect();
-    //if args.len() < 2 {
-    //    println!("Usage: <command> <arguments>");
-    //    return Ok(());
-    //}
-
-    // println!("before the terminal");
-    let mut terminal = ratatui::init();
-    let mut app = App::new(); //let result = run(terminal);
-                              // app.path_index = app.dir_paths.len() as usize;
-                              // app.hl_block.y += app.path_index as u16;
-                              // app.hl_block.y += 3;
-
-    // app.dir_paths = app.current_path();
-    let app_result = app.run(&mut terminal);
-    restore();
-
-    let selected_path = app.print_output();
-    if app.exit == true {
-        println!("{}", selected_path);
+    let args: Vec<String> = env::args().collect();
+    if args.len() < 2 {
+        println!("Usage: <string> <string>");
+        return Ok(());
     }
-    // if selected_path.is_some() {
-    // } else {
-    //     println!("directory or file doesn't exists");
+    let command = &args[1];
+    // match command.as_str() {
+    //
+    //
     // }
 
-    app_result
+    //TODO:(b0b0)test for levenshtein
+    // let string1 = String::from("kitty");
+    // let string2 = String::from("shitty");
+    let mut string1 = args[1].to_string();
+    // println!("{string1}");
+    let mut string2 = args[2].to_string();
+    // println!("{string2}");
 
-    //let mut entries = fs::read_dir("..")?
-    //    .map(|res| res.map(|e| e.path()))
-    //    .collect::<Result<Vec<_>, io::Error>>()?;
+    // println!("first string:");
+    // io::stdin()
+    //     .read_line(&mut string1)
+    //     .expect("Failed to read line");
+    // println!("second string:");
+    // io::stdin()
+    //     .read_line(&mut string2)
+    //     .expect("Failed to read line");
+    let results: usize = levenshtein_recursive(&string1, &string2, string1.len(), string2.len());
+    println!("{results}");
+    Ok(())
+    // println!("before the terminal");
+    // let mut terminal = ratatui::init();
+    // let mut app = App::new();
+    // let app_result = app.run(&mut terminal);
+    // restore();
     //
-    //entries.sort();
-    //let command = &args[1];
-    //let filename = "data.json";
-    //let mut table = Table::load(filename);
+    // let selected_path = app.print_output();
+    // if app.exit == true {
+    //     println!("{}", selected_path);
+    // }
     //
-    //match command.as_str() {
-    //    "sort" => {
-    //        for entry in &entries {
-    //            println!("{}", entry.display());
-    //        }
-    //        return Ok(());
-    //    }
-    //    "add" => {
-    //        if args.len() != 4 {
-    //            println!("Usage: append <team> <score>");
-    //            return Ok(());
-    //        }
-    //        let team = args[2].clone();
-    //        let score: i32 = args[3].parse().expect("Score should be an integer.");
-    //        table.append(team, score);
-    //    }
-    //    "update" => {
-    //        if args.len() != 4 {
-    //            println!("Usage: update <team> <score>");
-    //            return Ok(());
-    //        }
-    //        let team = args[2].clone();
-    //        let score: i32 = args[3].parse().expect("Score should be an integer.");
-    //        table.update(team, score);
-    //    }
-    //    "delete" => {
-    //        if args.len() != 3 {
-    //            println!("Usage: delete <team>");
-    //            return Ok(());
-    //        }
-    //
-    //        let team = args[2].clone();
-    //        table.delete(team.clone());
-    //        if args[2] == "*" {}
-    //    }
-    //    "*" => {
-    //        table.delete_all();
-    //    }
-    //    "print" => {
-    //        table.print();
-    //    }
-    //    _ => {
-    //        println!("Unknown command.");
-    //        return Ok(());
-    //    }
-    //}
-    //
-    //table.save(filename);
-    //Ok(())
+    // app_result
 }
 
 fn print_dirs(dir: &Path, cb: &dyn Fn(&DirEntry)) -> io::Result<()> {
@@ -266,7 +222,7 @@ impl App {
         export_path
     }
 
-    fn debug_path(&mut self) -> Paragraph {
+    fn debug_path(&mut self) -> Paragraph<'_> {
         let paragraph = Paragraph::new(format!("P:{} hl|y: {}", self.path_index, self.hl_block.y))
             .style(Style::default().fg(Color::Rgb(165, 180, 201)))
             .block(
@@ -341,7 +297,7 @@ impl App {
             height: 3,
         };
 
-        let i = 0;
+        let _i = 0;
         let paragraph = Paragraph::new(format!("{}", paths.join("\n")))
             .style(
                 Style::default()
@@ -456,3 +412,115 @@ impl App {
         paths
     }
 }
+
+fn levenshtein_recursive(str1: &String, str2: &String, m: usize, n: usize) -> usize {
+    if m == 0 {
+        return n;
+    }
+    if n == 0 {
+        return m;
+    }
+
+    if str1.chars().nth(m - 1) == str2.chars().nth(n - 1) {
+        let m2 = m - 1;
+        let n2 = n - 1;
+        levenshtein_recursive(&str1, &str2, m2, n2)
+    } else {
+        let insert = levenshtein_recursive(&str1, &str2, m, n - 1);
+        let remove = levenshtein_recursive(&str1, &str2, m - 1, n);
+        let replace = levenshtein_recursive(&str1, &str2, m - 1, n - 1);
+        return 1 + std::cmp::min(insert, std::cmp::min(remove, replace));
+    }
+}
+// fn levenshteinRecursive(const &str str1,
+//                         const &str str2,int m, int n)
+// {
+//
+//     // str1 is empty
+//     if (m == 0) {
+//         return n;
+//     }
+//     // str2 is empty
+//     if (n == 0) {
+//         return m;
+//     }
+//
+//     if (str1[m - 1] == str2[n - 1]) {
+//         return levenshteinRecursive(str1, str2, m - 1,
+//                                     n - 1);
+//     }
+//
+//     return 1
+//         + min(
+//
+//             // Insert
+//             levenshteinRecursive(str1, str2, m, n - 1),
+//             min(
+//
+//                 // Remove
+//                 levenshteinRecursive(str1, str2, m - 1,
+//                                         n),
+//
+//                 // Replace
+//                 levenshteinRecursive(str1, str2, m - 1,
+//                                         n - 1)));
+// }
+//
+//let mut entries = fs::read_dir("..")?
+//    .map(|res| res.map(|e| e.path()))
+//    .collect::<Result<Vec<_>, io::Error>>()?;
+//
+//entries.sort();
+//let command = &args[1];
+//let filename = "data.json";
+//let mut table = Table::load(filename);
+//
+//match command.as_str() {
+//    "sort" => {
+//        for entry in &entries {
+//            println!("{}", entry.display());
+//        }
+//        return Ok(());
+//    }
+//    "add" => {
+//        if args.len() != 4 {
+//            println!("Usage: append <team> <score>");
+//            return Ok(());
+//        }
+//        let team = args[2].clone();
+//        let score: i32 = args[3].parse().expect("Score should be an integer.");
+//        table.append(team, score);
+//    }
+//    "update" => {
+//        if args.len() != 4 {
+//            println!("Usage: update <team> <score>");
+//            return Ok(());
+//        }
+//        let team = args[2].clone();
+//        let score: i32 = args[3].parse().expect("Score should be an integer.");
+//        table.update(team, score);
+//    }
+//    "delete" => {
+//        if args.len() != 3 {
+//            println!("Usage: delete <team>");
+//            return Ok(());
+//        }
+//
+//        let team = args[2].clone();
+//        table.delete(team.clone());
+//        if args[2] == "*" {}
+//    }
+//    "*" => {
+//        table.delete_all();
+//    }
+//    "print" => {
+//        table.print();
+//    }
+//    _ => {
+//        println!("Unknown command.");
+//        return Ok(());
+//    }
+//}
+//
+//table.save(filename);
+//Ok(())
