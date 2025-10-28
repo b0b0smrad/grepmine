@@ -53,12 +53,12 @@ fn run(mut terminal: DefaultTerminal) -> io::Result<()> {
     }
 }
 fn main() -> io::Result<()> {
-    let args: Vec<String> = env::args().collect();
-    if args.len() < 2 {
-        println!("Usage: <string> <string>");
-        return Ok(());
-    }
-    let command = &args[1];
+    // let args: Vec<String> = env::args().collect();
+    // if args.len() < 2 {
+    //     println!("Usage: <string> <string>");
+    //     return Ok(());
+    // }
+    // let command = &args[1];
     // match command.as_str() {
     //
     //
@@ -67,10 +67,11 @@ fn main() -> io::Result<()> {
     //TODO:(b0b0)test for levenshtein
     // let string1 = String::from("kitty");
     // let string2 = String::from("shitty");
-    let mut string1 = args[1].to_string();
-    // println!("{string1}");
-    let mut string2 = args[2].to_string();
-    // println!("{string2}");
+
+    // let mut string1 = args[1].to_string();
+    // // println!("{string1}");
+    // let mut string2 = args[2].to_string();
+    // // println!("{string2}");
 
     // println!("first string:");
     // io::stdin()
@@ -80,21 +81,21 @@ fn main() -> io::Result<()> {
     // io::stdin()
     //     .read_line(&mut string2)
     //     .expect("Failed to read line");
-    let results: usize = levenshtein_recursive(&string1, &string2, string1.len(), string2.len());
-    println!("{results}");
-    Ok(())
+    // let results: usize = levenshtein_recursive(&string1, &string2, string1.len(), string2.len());
+    // println!("{results}");
+    // Ok(())
     // println!("before the terminal");
-    // let mut terminal = ratatui::init();
-    // let mut app = App::new();
-    // let app_result = app.run(&mut terminal);
-    // restore();
+    let mut terminal = ratatui::init();
+    let mut app = App::new();
+    let app_result = app.run(&mut terminal);
+    restore();
     //
-    // let selected_path = app.print_output();
-    // if app.exit == true {
-    //     println!("{}", selected_path);
-    // }
+    let selected_path = app.print_output();
+    if app.exit == true {
+        println!("{}", selected_path);
+    }
     //
-    // app_result
+    app_result
 }
 
 fn print_dirs(dir: &Path, cb: &dyn Fn(&DirEntry)) -> io::Result<()> {
@@ -206,6 +207,10 @@ impl App {
         self.exit = true;
     }
 
+    // fn highlight_fuzzily(&mut self){
+    //
+    //
+    // }
     fn print_output(&mut self) -> String {
         // let export_path = self.dir_paths.get(self.path_index);
         self.dir_paths = self.current_path();
@@ -239,8 +244,9 @@ impl App {
         paragraph
     }
     fn draw(&mut self, frame: &mut Frame) {
-        let paths = self.current_path();
         self.dir_paths = self.current_path();
+        let mut paths = self.dir_paths.clone();
+
         let size = frame.area();
 
         let vertical = Layout::vertical([
@@ -324,6 +330,12 @@ impl App {
             })
             .block(Block::bordered().title("Input"));
         frame.render_widget(input, input_area);
+        for dir in self.dir_paths.iter() {
+            let distance = levenshtein_recursive(&self.input, dir, self.input.len(), dir.len());
+            if distance < 2 {
+                paths = self.dir_paths.clone();
+            }
+        }
 
         let block = Block::new().style(Style::default().bg(Color::Rgb(62, 30, 104)));
         // .borders(Borders::ALL);
