@@ -19,15 +19,18 @@ use std::fs::{self, canonicalize, read_dir, DirEntry, OpenOptions, ReadDir};
 use std::io::{self, prelude::*, Write};
 use std::path::Path;
 use std::{collections::HashMap, default};
+use std::{thread, time::Duration};
 
 #[derive(Debug, Default)]
 pub struct App {
     input: String,
+    prev_input: String,
     path_index: usize,
     hl_block: Rect,
     input_mode: InputMode,
     char_index: usize,
     dir_paths: Vec<String>,
+    dir_filtered: Vec<String>,
     exit: bool,
 }
 #[derive(Debug, Default)]
@@ -46,6 +49,7 @@ fn render(frame: &mut Frame) {
 }
 fn run(mut terminal: DefaultTerminal) -> io::Result<()> {
     loop {
+        thread::sleep(Duration::from_millis(100));
         terminal.draw(render)?;
         if matches!(event::read()?, Event::Key(_)) {
             break Ok(());
@@ -118,10 +122,12 @@ impl App {
         let preset = "> ";
         Self {
             input: preset.to_string(),
+            prev_input: String::new(),
             input_mode: InputMode::Normal,
             path_index: 0,
             exit: false,
             dir_paths: Vec::new(),
+            dir_filtered: Vec::new(),
             char_index: preset.chars().count(),
             hl_block: Rect {
                 x: 0,
@@ -137,8 +143,10 @@ impl App {
         terminal: &mut Terminal<CrosstermBackend<std::io::Stdout>>,
     ) -> io::Result<()> {
         while !self.exit {
+            // thread::sleep(Duration::from_millis(100));
             terminal.draw(|frame| self.draw(frame))?;
             self.handle_events()?;
+            self.update();
         }
         Ok(())
     }
@@ -184,6 +192,9 @@ impl App {
         self.char_index = 0;
     }
     fn move_highlight_up(&mut self) {
+        if self.dir_paths.is_empty() {
+            return;
+        }
         // println!(
         //     "path_index: {}, dir_paths.len(): {}",
         //     self.path_index,
@@ -243,10 +254,33 @@ impl App {
             );
         paragraph
     }
-    fn draw(&mut self, frame: &mut Frame) {
-        self.dir_paths = self.current_path();
-        let mut paths = self.dir_paths.clone();
+    fn update(&mut self) {
+        //NOTE: i would create something like this and then
+        //make it : if self.input has changed do this: and put this function into the uppper side
+        //of draw or under self.input and input widget?
 
+        self.dir_paths = self.current_path();
+
+        // for dir in self.dir_paths.iter() {
+        let filtered: Vec<String> = self
+            .dir_paths
+            .iter()
+            .filter(|dir| levenshtein_recursive(&self.input, dir, self.input.len(), dir.len()) < 2)
+            .cloned()
+            .collect();
+
+        // let lv_dirs: Vec<String> = dir;
+        // let distance = levenshtein_recursive(&self.input, dir, self.input.len(), dir.len());
+        // if distance < 2 {
+        // }
+        self.dir_filtered = filtered;
+        // }
+
+        //this needs to  be a the end of the loop
+        self.prev_input = self.input.clone();
+    }
+    fn draw(&mut self, frame: &mut Frame) {
+        // self.dir_paths = self.current_path();
         let size = frame.area();
 
         let vertical = Layout::vertical([
@@ -304,7 +338,11 @@ impl App {
         };
 
         let _i = 0;
-        let paragraph = Paragraph::new(format!("{}", paths.join("\n")))
+        let mut temp_dirs = self.dir_paths.clone();
+        if (self.input != self.prev_input) {
+            temp_dirs = self.dir_filtered.clone();
+        }
+        let paragraph = Paragraph::new(format!("{}", temp_dirs.join("\n")))
             .style(
                 Style::default()
                     .fg(Color::Rgb(255, 172, 172))
@@ -329,31 +367,25 @@ impl App {
                 InputMode::Editing => Style::default().fg(Color::Yellow),
             })
             .block(Block::bordered().title("Input"));
-        frame.render_widget(input, input_area);
-        for dir in self.dir_paths.iter() {
-            let distance = levenshtein_recursive(&self.input, dir, self.input.len(), dir.len());
-            if distance < 2 {
-                paths = self.dir_paths.clone();
-            }
-        }
 
         let block = Block::new().style(Style::default().bg(Color::Rgb(62, 30, 104)));
         // .borders(Borders::ALL);
         // .border_style(Style::on_light_red());
-        let debug_p = self.debug_path();
+        // let debug_p = self.debug_path().clone();
         let size_debug = Rect {
             x: (32),
             y: (18),
             width: (40),
             height: (10),
         };
-        frame.render_widget(debug_p, size_debug);
+        frame.render_widget(input, input_area);
+        // frame.render_widget(debug_p, size_debug);
         frame.render_widget(paragraph, size);
         frame.render_widget(help_message, help_area);
         frame.render_widget(block, size);
         frame.render_widget(input_bar, input_area);
         //
-        if !paths.is_empty() {
+        if !self.dir_paths.is_empty() {
             self.hl_block.width = frame.area().width;
             let highlight_block =
                 Block::default().style(Style::default().bg(Color::Rgb(228, 90, 147)));
