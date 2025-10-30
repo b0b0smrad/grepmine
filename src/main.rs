@@ -121,7 +121,7 @@ impl App {
     fn new() -> Self {
         let preset = "> ";
         Self {
-            input: preset.to_string(),
+            input: String::new(),
             prev_input: String::new(),
             input_mode: InputMode::Normal,
             path_index: 0,
@@ -261,19 +261,22 @@ impl App {
 
         self.dir_paths = self.current_path();
 
+        if self.input != self.prev_input {
+            let filtered: Vec<String> = self
+                .dir_paths
+                .iter()
+                .filter(|dir| dir.to_lowercase().contains(&self.input.to_lowercase()))
+                .cloned()
+                .collect();
+
+            self.dir_filtered = filtered;
+        }
         // for dir in self.dir_paths.iter() {
-        let filtered: Vec<String> = self
-            .dir_paths
-            .iter()
-            .filter(|dir| levenshtein_recursive(&self.input, dir, self.input.len(), dir.len()) < 2)
-            .cloned()
-            .collect();
 
         // let lv_dirs: Vec<String> = dir;
         // let distance = levenshtein_recursive(&self.input, dir, self.input.len(), dir.len());
         // if distance < 2 {
         // }
-        self.dir_filtered = filtered;
         // }
 
         //this needs to  be a the end of the loop
@@ -338,8 +341,13 @@ impl App {
         };
 
         let _i = 0;
-        let mut temp_dirs = self.dir_paths.clone();
-        if (self.input != self.prev_input) {
+        let mut temp_dirs;
+        // if (self.input != self.prev_input) {
+        //     temp_dirs = self.dir_filtered.clone();
+        // }
+        if self.dir_filtered.is_empty() {
+            temp_dirs = self.dir_paths.clone();
+        } else {
             temp_dirs = self.dir_filtered.clone();
         }
         let paragraph = Paragraph::new(format!("{}", temp_dirs.join("\n")))
